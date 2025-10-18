@@ -80,9 +80,7 @@ void gaussianFilter(Mat &input, double sigma)
         {
 
             /*** 第三步：在此处填充高斯滤波模板元素计算代码 ***/
-
-            
-            
+            Template.at<double>(i, j) = exp(-(pow(i - center, 2) + pow(j - center, 2)) / (2 * pow(sigma, 2))) / (2 * pi * pow(sigma, 2));
             sum += Template.at<double>(i, j); //用于归一化模板元素
         }
     }
@@ -94,7 +92,7 @@ void gaussianFilter(Mat &input, double sigma)
         {
 
             /*** 第四步：在此处填充模板归一化代码 ***/
-
+            Template.at<double>(i, j) /= sum;
         }
     }
     // 卷积
@@ -117,8 +115,6 @@ void gaussianFilter(Mat &input, double sigma)
     }
 
 
-
-
     output.convertTo(output, CV_8UC1);
     imshow("spatial_filtered_image", output);
 }
@@ -130,15 +126,10 @@ void sharpenFilter(Mat &input)
     int T_size = 3;                                    // 模板大小
     Mat Template = Mat::zeros(T_size, T_size, CV_64F); // 初始化模板矩阵
     /*** 第六步：填充锐化滤波模板 ***/   
-    for (int i = 0; i < T_size; i++)
-    {
-        for (int j = 0; j < T_size; j++)
-        {
-            Template.at<double>(i, j) = -1.0;
-        }
-    }
-    Template.at<double>(1, 1) = 9.0;
-    
+    Template.at<double>(0, 0) = 0;   Template.at<double>(0, 1) = -1;  Template.at<double>(0, 2) = 0;
+    Template.at<double>(1, 0) = -1;  Template.at<double>(1, 1) = 5;   Template.at<double>(1, 2) = -1;
+    Template.at<double>(2, 0) = 0;   Template.at<double>(2, 1) = -1;  Template.at<double>(2, 2) = 0;
+
     // 卷积
     Mat output = Mat::zeros(input.size(), CV_64F);
 
@@ -170,7 +161,26 @@ void Dilate(Mat &Src)
     Dst.convertTo(Dst, CV_64F);
 
     /*** 第八步：填充膨胀代码 ***/    
-
+    int T_size = 3; // 使用3x3的结构元素
+    int half_T = T_size / 2;
+    
+    // 遍历图像每个像素
+    for(int i = half_T; i < Src.rows - half_T; i++) 
+    {
+        for(int j = half_T; j < Src.cols - half_T; j++) 
+        {
+            double maxVal = 0;
+            // 在3x3邻域内找最大值
+            for(int m = -half_T; m <= half_T; m++) 
+            {
+                for(int n = -half_T; n <= half_T; n++) 
+                {
+                    maxVal = max(maxVal, (double)Src.at<uchar>(i+m, j+n));
+                }
+            }
+            Dst.at<double>(i,j) = maxVal;
+        }
+    }
 
 
     Dst.convertTo(Dst, CV_8UC1);
@@ -183,7 +193,22 @@ void Erode(Mat &Src)
     Dst.convertTo(Dst, CV_64F);
 
     /*** 第九步：填充腐蚀代码 ***/    
-
+    int T_size = 3; // 使用3x3的结构元素
+    int half_T = T_size / 2;
+    
+    // 遍历图像每个像素
+    for(int i = half_T; i < Src.rows - half_T; i++) {
+        for(int j = half_T; j < Src.cols - half_T; j++) {
+            double minVal = 255;
+            // 在3x3邻域内找最小值
+            for(int m = -half_T; m <= half_T; m++) {
+                for(int n = -half_T; n <= half_T; n++) {
+                    minVal = min(minVal, (double)Src.at<uchar>(i+m, j+n));
+                }
+            }
+            Dst.at<double>(i,j) = minVal;
+        }
+    }
 
 
     Dst.convertTo(Dst, CV_8UC1);
