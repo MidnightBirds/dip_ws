@@ -159,32 +159,57 @@ void Dilate(Mat &Src)
 {
     Mat Dst = Src.clone();
     Dst.convertTo(Dst, CV_64F);
-
+    //二值化 
+    threshold(Src, Src, 128, 255, THRESH_BINARY);
     /*** 第八步：填充膨胀代码 ***/    
     int T_size = 3; // 使用3x3的结构元素
     int half_T = T_size / 2;
-    
-    // 遍历图像每个像素
+
+    //膨胀黑色部分(有一个黑则变黑，否则不变)
     for(int i = half_T; i < Src.rows - half_T; i++) 
     {
         for(int j = half_T; j < Src.cols - half_T; j++) 
         {
-            double maxVal = 0;
-            // 在3x3邻域内找最大值
-            for(int m = -half_T; m <= half_T; m++) 
+            bool hit = false;
+            for (int m = 0; m < T_size && (!hit); m++)
             {
-                for(int n = -half_T; n <= half_T; n++) 
+                for (int n = 0; n < T_size && (!hit); n++)
                 {
-                    maxVal = max(maxVal, (double)Src.at<uchar>(i+m, j+n));
+                    if (Src.at<uchar>(i+m, j+n) == 0)
+                    {
+                        hit = true;
+                        break;
+                    }
                 }
             }
-            Dst.at<double>(i,j) = maxVal;
+            if (hit)
+                Dst.at<double>(i, j) = 0;
+            else
+                Dst.at<double>(i, j) = 255;
         }
     }
-
+    
 
     Dst.convertTo(Dst, CV_8UC1);
     imshow("dilate", Dst);
+
+        // 遍历图像每个像素
+    // for(int i = half_T; i < Src.rows - half_T; i++) 
+    // {
+    //     for(int j = half_T; j < Src.cols - half_T; j++) 
+    //     {
+    //         double maxVal = 0;
+    //         // 在3x3邻域内找最大值
+    //         for(int m = -half_T; m <= half_T; m++) 
+    //         {
+    //             for(int n = -half_T; n <= half_T; n++) 
+    //             {
+    //                 maxVal = max(maxVal, (double)Src.at<uchar>(i+m, j+n));
+    //             }
+    //         }
+    //         Dst.at<double>(i,j) = maxVal;
+    //     }
+    // }
 }
 // 腐蚀函数
 void Erode(Mat &Src)
@@ -192,27 +217,55 @@ void Erode(Mat &Src)
     Mat Dst = Src.clone();
     Dst.convertTo(Dst, CV_64F);
 
+    //二值化 
+    threshold(Src, Src, 128, 255, THRESH_BINARY);
     /*** 第九步：填充腐蚀代码 ***/    
     int T_size = 3; // 使用3x3的结构元素
     int half_T = T_size / 2;
-    
-    // 遍历图像每个像素
-    for(int i = half_T; i < Src.rows - half_T; i++) {
-        for(int j = half_T; j < Src.cols - half_T; j++) {
-            double minVal = 255;
-            // 在3x3邻域内找最小值
-            for(int m = -half_T; m <= half_T; m++) {
-                for(int n = -half_T; n <= half_T; n++) {
-                    minVal = min(minVal, (double)Src.at<uchar>(i+m, j+n));
+
+    //腐蚀黑色部分(全为黑则不改变，否则变白)
+    for(int i = half_T; i < Src.rows - half_T; i++) 
+    {
+        for(int j = half_T; j < Src.cols - half_T; j++) 
+        {
+            bool hit = true;
+            for (int m = 0; m < T_size && hit; m++)
+            {
+                for (int n = 0; n < T_size && hit; n++)
+                {
+                    if (Src.at<uchar>(i+m, j+n))
+                    {
+                        hit = false;
+                        break;
+                    }
                 }
             }
-            Dst.at<double>(i,j) = minVal;
+            if (hit)
+                Dst.at<double>(i, j) = 0;
+            else
+                Dst.at<double>(i, j) = 255;
         }
     }
+    
+
 
 
     Dst.convertTo(Dst, CV_8UC1);
     imshow("erode", Dst);
+
+        // 遍历图像每个像素
+    // for(int i = half_T; i < Src.rows - half_T; i++) {
+    //     for(int j = half_T; j < Src.cols - half_T; j++) {
+    //         double minVal = 255;
+    //         // 在3x3邻域内找最小值
+    //         for(int m = -half_T; m <= half_T; m++) {
+    //             for(int n = -half_T; n <= half_T; n++) {
+    //                 minVal = min(minVal, (double)Src.at<uchar>(i+m, j+n));
+    //             }
+    //         }
+    //         Dst.at<double>(i,j) = minVal;
+    //     }
+    // }
 }
 
 Mat frame_msg;
