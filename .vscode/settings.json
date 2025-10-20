@@ -1,6 +1,10 @@
 {
     "files.associations": {
         "*.m": "matlab",
-        "xstring": "cpp"
+        "xstring": "cpp",
+        "xutility": "cpp",
+        "cmath": "cpp",
+        "initializer_list": "cpp",
+        "utility": "cpp"
     }
 }
