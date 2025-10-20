@@ -159,12 +159,19 @@ void Dilate(Mat &Src)
 {
     Mat Dst = Src.clone();
     Dst.convertTo(Dst, CV_64F);
-    //二值化 
-    threshold(Src, Src, 128, 255, THRESH_BINARY);
-    /*** 第八步：填充膨胀代码 ***/    
-    int T_size = 3; // 使用3x3的结构元素
-    int half_T = T_size / 2;
 
+    /*** 第八步：填充膨胀代码 ***/    
+    int T_size = 9; // 使用9x9的结构元素
+    int half_T = T_size / 2;
+    
+    Mat Template = Mat::zeros(T_size, T_size, CV_8UC1); 
+    for (int i = 0; i < T_size; i++)
+    {
+        for (int j = 0; j < T_size; j++)
+        {
+            Template.at<uchar>(i, j) = 1;
+        }
+    }
     //膨胀黑色部分(有一个黑则变黑，否则不变)
     for(int i = half_T; i < Src.rows - half_T; i++) 
     {
@@ -175,7 +182,7 @@ void Dilate(Mat &Src)
             {
                 for (int n = 0; n < T_size && (!hit); n++)
                 {
-                    if (Src.at<uchar>(i+m, j+n) == 0)
+                    if (Src.at<uchar>(i+m, j+n) == 0 && Template.at<uchar>(m,n))
                     {
                         hit = true;
                         break;
@@ -217,12 +224,18 @@ void Erode(Mat &Src)
     Mat Dst = Src.clone();
     Dst.convertTo(Dst, CV_64F);
 
-    //二值化 
-    threshold(Src, Src, 128, 255, THRESH_BINARY);
-    /*** 第九步：填充腐蚀代码 ***/    
-    int T_size = 3; // 使用3x3的结构元素
-    int half_T = T_size / 2;
 
+    /*** 第九步：填充腐蚀代码 ***/    
+    int T_size = 9; // 使用9x9的结构元素
+    int half_T = T_size / 2;
+    Mat Template = Mat::zeros(T_size, T_size, CV_8UC1); 
+    for (int i = 0; i < T_size; i++)
+    {
+        for (int j = 0; j < T_size; j++)
+        {
+            Template.at<uchar>(i, j) = 1;
+        }
+    }
     //腐蚀黑色部分(全为黑则不改变，否则变白)
     for(int i = half_T; i < Src.rows - half_T; i++) 
     {
@@ -233,7 +246,7 @@ void Erode(Mat &Src)
             {
                 for (int n = 0; n < T_size && hit; n++)
                 {
-                    if (Src.at<uchar>(i+m, j+n))
+                    if (Src.at<uchar>(i+m, j+n) == 255 && Template.at<uchar>(m,n))
                     {
                         hit = false;
                         break;
@@ -310,6 +323,8 @@ int main(int argc, char **argv)
     }
 
     Mat frIn;                                        // 当前帧图片
+    Mat test1;
+    Mat test2;
     while (ros::ok())
     {
 
@@ -343,24 +358,48 @@ int main(int argc, char **argv)
             frIn = frame_msg;
         }
 
+	test1 = imread("//home//eaibot//test1.png", IMREAD_COLOR);
+	test2 = imread("//home//eaibot//test2.png", IMREAD_COLOR);
+	
+	cvtColor(test1, test1, COLOR_BGR2GRAY);
+	cvtColor(test2, test2, COLOR_BGR2GRAY);
+	
 
-        cvtColor(frIn, frIn, COLOR_BGR2GRAY);
-        imshow("original_image", frIn);
+	
+    for(int i = 0; i < test2.rows; i++) 
+    {
+	for(int j = 0; j < test2.cols; j++) 
+	{
+		if(test2.at<uchar>(i, j)>127)
+		{
+			test2.at<uchar>(i, j) = 255;
+		}
+		else
+		{
+			test2.at<uchar>(i, j) = 0;
+		}
+	}
+    }
+	imshow("original_image_1", test1);
+	imshow("original_image_2", test2);
+	
+        //cvtColor(frIn, frIn, COLOR_BGR2GRAY);
+        //imshow("original_image_1", frIn);
         //空域均值滤波
-	    meanFilter(frIn);
+	meanFilter(test1);
 	
         // 空域高斯滤波
         double sigma = 2.5;
-        gaussianFilter(frIn, sigma);
+        gaussianFilter(test1, sigma);
 
         //空域锐化滤波
-        sharpenFilter(frIn);
+        sharpenFilter(test1);
 
         // 膨胀函数
-        Dilate(frIn);
+        Dilate(test2);
 
         // 腐蚀函数
-        Erode(frIn);
+        Erode(test2);
 
         ros::spinOnce();
         waitKey(5);
