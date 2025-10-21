@@ -3,14 +3,14 @@
 using namespace std;
 using namespace cv;
 
-#define pi 3.1415926
+#define PI 3.1415926
 
 /***************函数声明，相关参数自行修改***************/
-Mat EdgeDetector(Mat input, int threshold_low, int threshold_high);
+Mat EdgeDetector(Mat input, int threshold);
 Mat HoughLines(Mat input, int threshold);
-Mat HoughCircles(Mat input, int threshold, int min_radius = 0, int max_radius);
+Mat HoughCircles(Mat input, int threshold, int min_radius, int max_radius);
 
-Mat raw;
+//Mat raw;
 
 int main(int argc, char *argv[])
 {
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
                 /***************读取图像***************/
                 // raw = imread("./src/exp3/data/lane.png");
 
-                if (!raw_line.data || !raw_circle.data)
+                if (!raw_line.data || !raw_circle.data || !raw_edges.data)
                 {
                         cout << "error" << endl;
                         break;
@@ -31,13 +31,14 @@ int main(int argc, char *argv[])
                 imshow("raw_line", raw_line);
                 imshow("raw_circle", raw_circle);
                 imshow("raw_edges", raw_edges);
-                Mat gray_line,gray_circle, gray_edges;
+                Mat gray_line, gray_circle, gray_edges;
                 cvtColor(raw_line, gray_line, COLOR_BGR2GRAY);
                 cvtColor(raw_circle, gray_circle, COLOR_BGR2GRAY);
                 cvtColor(raw_edges, gray_edges, COLOR_BGR2GRAY);
 
+
                 /****************调用边缘检测函数****************/
-                Mat edge_result =  EdgeDetector(gray_edges, 50, 150);
+                Mat edge_result =  EdgeDetector(gray_edges, 200);
                 imshow("edge_result", edge_result);
 
                 /***************调用霍夫线变换***************/
@@ -45,28 +46,28 @@ int main(int argc, char *argv[])
                 imshow("lines_result", lines_result);
 
                 /***************调用霍夫圆变换***************/
-                Mat circles_result = HoughCircles(gray_circle, 150, 50, 300);
+                Mat circles_result = HoughCircles(gray_circle, 30, 50, 200);
                 imshow("circles_result", circles_result);
         }
         return 0;
 }
 /***************下面实现EdgeDetector()函数***************/
-Mat EdgeDetector(Mat input, int threshold_low, int threshold_high)
+Mat EdgeDetector(Mat input, int threshold)
 { 
         Mat blured = Mat::zeros(input.size(), CV_64F);
+        
         //先高斯滤波
-
         int T_size = 5;                                    // 模板大小
         Mat Template = Mat::zeros(T_size, T_size, CV_64F); // 初始化模板矩阵
         int half_T = T_size / 2;
         double sum = 0.0;
-
+	 double sigma = 1;
         for (int i = 0; i < T_size; i++)
         {
                 for (int j = 0; j < T_size; j++)
                 {
-                Template.at<double>(i, j) = exp(-(pow(i - half_T, 2) + pow(j - half_T, 2)) / 2) / (2 * pi);
-                sum += Template.at<double>(i, j); //用于归一化模板元素
+            		Template.at<double>(i, j) = exp(-(pow(i - half_T, 2) + pow(j - half_T, 2)) / (2 * pow(sigma, 2))) / (2 * PI * pow(sigma, 2));
+                	sum += Template.at<double>(i, j); //用于归一化模板元素
                 }
         }
         for (int i = 0; i < T_size; i++)
@@ -91,18 +92,26 @@ Mat EdgeDetector(Mat input, int threshold_low, int threshold_high)
                         }
                 } 
         }
+        
+    //blured.convertTo(blured, CV_8UC1);
+    //imshow("spatial_filtered_image", blured);
 
         //Sobel算子
+        //Mat grad_x = Mat::zeros(input.size(), CV_32S);
         Mat grad_val = Mat::zeros(input.size(), CV_64F);
         Mat grad_angle = Mat::zeros(input.size(), CV_64F);
         Mat Template_x = (Mat_<double>(3,3) << -1,0,1,-2,0,2,-1,0,1);
         Mat Template_y = (Mat_<double>(3,3) << -1,-2,-1,0,0,0,1,2,1);
+        T_size = 3;
+        half_T = 1;
+        
+        
         for (int i = half_T; i < input.rows - half_T; i++)
         {
                 for (int j = half_T; j < input.cols - half_T; j++)
                 {
-                        double gx = 0.0;
-                        double gy = 0.0;
+                        int gx = 0.0;
+                        int gy = 0.0;
                         for (int m = 0; m < T_size; m++)
                         {
                                 for (int n = 0; n < T_size; n++)
@@ -111,13 +120,15 @@ Mat EdgeDetector(Mat input, int threshold_low, int threshold_high)
                                         gy += Template_y.at<double>(m, n) * blured.at<double>(i + m - half_T, j + n - half_T);
                                 }
                         }
+                        
                         grad_val.at<double>(i, j) = sqrt(pow(gx, 2) + pow(gy, 2));
                         double theta = atan2(gy, gx) * 180.0 / PI;
-                        if (theta < 0) theta += 180.0; // 0..180
-                                grad_angle.at<double>(i,j) = theta;
+                        if (theta < 0) theta += 180.0; // 0-180
+                        grad_angle.at<double>(i,j) = theta;
                 } 
         }
-
+    	//grad_val.convertTo(grad_val, CV_8UC1);
+    	//imshow("grad_val_image", grad_val);
         Mat nms = Mat::zeros(input.size(), CV_64F);
         //非极大值抑制
         for (int i = 1; i < input.rows - 1; i++)
@@ -127,7 +138,7 @@ Mat EdgeDetector(Mat input, int threshold_low, int threshold_high)
                         double theta = grad_angle.at<double>(i, j); 
                         double g = grad_val.at<double>(i, j);
                         double g1, g2;
-                        if (theta > 0 && theta <= 22.5) || (theta > 157.5 && theta <= 180)
+                        if ((theta > 0 && theta <= 22.5) || (theta > 157.5 && theta <= 180))
                         {
                                 g1 = grad_val.at<double>(i, j - 1);
                                 g2 = grad_val.at<double>(i, j + 1);
@@ -158,70 +169,35 @@ Mat EdgeDetector(Mat input, int threshold_low, int threshold_high)
                 }
         }
 
+    	nms.convertTo(nms, CV_8UC1);
+    	//imshow("nms_image", nms);
         Mat edge_result = Mat::zeros(input.size(), CV_8U);
-        //双阈值检测
+        //阈值检测
         for (int i = 0; i < input.rows; i++)
         {
                 for (int j = 0; j < input.cols; j++)
                 {
-                        if (nms.at<double>(i, j) > threshold_high)
+                        if (nms.at<uchar>(i, j) > threshold)
                         {
-                                edge_result.at<double>(i, j) = 255;
+                                edge_result.at<uchar>(i, j) = 255;
                         }
-                        else if (nms.at<double>(i, j) < threshold_low)
-                        {
-                                edge_result.at<double>(i, j) = 127;
-                        }
+
                 }
         }
 
-        //边缘连接
-        for (int i = 1; i < input.rows - 1; i++)
-        {
-                for (int j = 1; j < input.cols - 1; j++)
-                { 
-                
-                        if (edge_result.at<double>(i, j) == 255)
-                        { 
-                                continue;
-                        }
-                        else if (edge_result.at<double>(i, j) == 127)
-                        {
-                                bool connected = false;
-                                for (int m = -1; m <= 1 &&; m++)
-                                {
-                                        for (int n = -1; n <= 1 &&; n++)
-                                        {
-                                                if (edge_result.at<double>(i + m, j + n) == 255)
-                                                {
-                                                        connected = true;
-                                                        break;
-                                                }
-                                        }
-                                        if (connected) break;
-                                }
-                                if (connected)
-                                {
-                                        edge_result.at<double>(i, j) = 255;
-                                }
-                                else
-                                {
-                                        edge_result.at<double>(i, j) = 0;
-                                }
-                        }
-                }
-        }
+    	//imshow("edge_result_image", edge_result);
+
 
         return edge_result;
 }
 /***************下面实现HoughLines()函数***************/
 Mat HoughLines(Mat input, int threshold)
 {
-        Mat canny = EdgeDetector(input, 50, 150);
+        Mat edge = EdgeDetector(input,150);
         
         //离散化参数
-        int width = canny.cols;
-        int height = canny.rows;
+        int width = edge.cols;
+        int height = edge.rows;
         double diag_len = sqrt(width * width + height * height);
         int rhos = (int)(diag_len * 2); //rho范围[-diag_len, diag_len]
         int thetas = 180;                //theta范围[0, 180)
@@ -233,7 +209,7 @@ Mat HoughLines(Mat input, int threshold)
         {
                 for (int x = 0; x < width; x++)
                 {
-                        if (canny.at<uchar>(y, x) == 255)
+                        if (edge.at<uchar>(y, x) == 255)
                         {
                                 for (int t = 0; t < thetas; t++)
                                 {
@@ -252,7 +228,7 @@ Mat HoughLines(Mat input, int threshold)
 
         //提取直线
         //在黑白原图中画彩色图像
-        cvtColor(canny, canny, COLOR_GRAY2BGR);
+        cvtColor(edge, edge, COLOR_GRAY2BGR);
         for (int t = 0; t < thetas; t++)
         {
                 for (int r = 0; r < rhos; r++)
@@ -294,23 +270,23 @@ Mat HoughLines(Mat input, int threshold)
                                         pt2.y = cvRound(y0 - 1000 * (a));
 
                                         //在结果图像上绘制直线
-                                        line(canny, pt1, pt2, Scalar(0, 0, 255), 2);
+                                        line(edge, pt1, pt2, Scalar(0, 0, 255), 2);
                                 }
                         }
 
                }
  
         }
-        return canny;
+        return edge;
 }
 /***************下面实现HoughCircles()函数***************/
-Mat HoughCircles(Mat input, int threshold, int min_radius = 0, int max_radius)
+Mat HoughCircles(Mat input, int threshold, int min_radius, int max_radius)
 { 
-        Mat canny = EdgeDetector(input, 50, 150);      
+        Mat edge = EdgeDetector(input, 150);      
 
         // 设置参数范围
-        int width = canny.cols;
-        int height = canny.rows;
+        int width = edge.cols;
+        int height = edge.rows;
     
         vector<Mat> accumulator(max_radius - min_radius);
         for (int r = 0; r < max_radius - min_radius; r++) {
@@ -322,12 +298,12 @@ Mat HoughCircles(Mat input, int threshold, int min_radius = 0, int max_radius)
         {
                 for (int x = 0; x < width; x++) 
                 {
-                        if (canny.at<uchar>(y, x) == 255) {  // 边缘点
+                        if (edge.at<uchar>(y, x) == 255) {  // 边缘点
                                 // 对每个可能的半径进行投票
                                 for (int r = min_radius; r < max_radius; r++) 
                                 {
                                         // 对圆周上的点进行投票
-                                        for (int angle = 0; angle < 360; angle ++) 
+                                        for (int angle = 0; angle < 360; angle+=5) 
                                         {  
                                                 double theta = angle * PI / 180.0;
                                                 int a = (int)(x - r * cos(theta));  // 圆心x坐标
@@ -355,7 +331,7 @@ Mat HoughCircles(Mat input, int threshold, int min_radius = 0, int max_radius)
                 {
                         for (int x = 0; x < width; x++) 
                         {
-                                int value = accumulator[r - min_radius].at<int>(y, x);
+                                int value = accumulator[r].at<int>(y, x);
                                 if (value > threshold) 
                                 {
                                         // 检查是否为局部最大值
@@ -366,7 +342,7 @@ Mat HoughCircles(Mat input, int threshold, int min_radius = 0, int max_radius)
                                                 {
                                                         if (x + dx >= 0 && x + dx < width && y + dy >= 0 && y + dy < height) 
                                                         {
-                                                                if (accumulator[r - min_radius].at<int>(y + dy, x + dx) > value) 
+                                                                if (accumulator[r].at<int>(y + dy, x + dx) > value) 
                                                                 {
                                                                         isLocalMax = false;
                                                                         break;
