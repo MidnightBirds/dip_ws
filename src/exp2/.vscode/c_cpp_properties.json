@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/opt/ros/noetic/include/**",
+        "/home/eaibot/dashgo_ws/devel/include/**",
+        "/home/eaibot/dashgo_ws/src/dashgo/amcl/include/**",
+        "/home/eaibot/dashgo_ws/src/detect_lidar/include/**",
+        "/home/eaibot/dashgo_ws/src/dashgo/ltme01_driver-1.0.1/include/**",
+        "/home/eaibot/dashgo_ws/src/dashgo/map_server/include/**",
+        "/home/eaibot/dashgo_ws/src/dashgo/yocs_velocity_smoother/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

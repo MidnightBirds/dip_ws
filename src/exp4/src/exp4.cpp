@@ -19,7 +19,7 @@ enum CameraState
     ZED,
     REALSENSE
 };
-CameraState state = REALSENSE;
+CameraState state = COMPUTER;
 
 
 using namespace cv;
@@ -76,7 +76,61 @@ void Gaussian(const Mat &input, Mat &output, double sigma)
 
 }
 
-void BGR2HSV(const Mat &input, Mat &output)
+// void BGR2HSV(const Mat &input, Mat &output)
+// {
+//     if (input.rows != output.rows ||
+//         input.cols != output.cols ||
+//         input.channels() != 3 ||
+//         output.channels() != 3)
+//         return;
+
+
+// 	for(int i = 0; i < input.rows; i++)
+// 	{
+// 		for (int j = 0; j < input.cols; j++)
+// 		{
+
+//             /*** 第二步：在此处填充RGB转HSV代码 ***/
+//             Vec3b pixel = input.at<Vec3b>(i, j);   
+//             double max_bgr = max(pixel[0], max(pixel[1], pixel[2]));
+//             double min_bgr = min(pixel[0], min(pixel[1], pixel[2]));
+//             double delta = max_val - min_val;
+//             //HSV
+            
+//             double h,s,v;
+//             v= max_bgr;
+//             if (v){
+//                 s = delta / max_val;
+//             }
+//             else{
+//                 s = 0;
+//             }
+
+//             if (delta != 0) {
+//                 if (max_val == r) 
+//                 {
+//                     h = 60 * fmod((g - b) / delta, 6);
+//                 } else if (max_val == g) 
+//                 {
+//                     h = 60 * ((b - r) / delta + 2);
+//                 } else 
+//                 {
+//                     h = 60 * ((r - g) / delta + 4);
+//                 }
+
+//             if (h < 0)200
+//             {
+//                 h += 360;
+//             }
+//             output.at<Vec3b>(i, j)[0] = (int)(h/2.0);
+//             output.at<Vec3b>(i, j)[1] = (int)(s*255.0);
+//             output.at<Vec3b>(i, j)[2] = (int)(v*255.0);
+//             }
+//         }
+//     }
+// }
+
+void BGR2HSI(const Mat &input, Mat &output)
 {
     if (input.rows != output.rows ||
         input.cols != output.cols ||
@@ -90,41 +144,24 @@ void BGR2HSV(const Mat &input, Mat &output)
 		for (int j = 0; j < input.cols; j++)
 		{
 
-            /*** 第二步：在此处填充RGB转HSV代码 ***/
+            /*** 第二步：在此处填充RGB转HSI代码 ***/
             Vec3b pixel = input.at<Vec3b>(i, j);   
             double max_bgr = max(pixel[0], max(pixel[1], pixel[2]));
             double min_bgr = min(pixel[0], min(pixel[1], pixel[2]));
-            double delta = max_val - min_val;
-            //HSV
+            //HSI
             
-            double h,s,v;
-            v= max_bgr;
-            if (v){
-                s = delta / max_val;
-            }
-            else{
-                s = 0;
-            }
-
-            if (delta != 0) {
-                if (max_val == r) 
-                {
-                    h = 60 * fmod((g - b) / delta, 6);
-                } else if (max_val == g) 
-                {
-                    h = 60 * ((b - r) / delta + 2);
-                } else 
-                {
-                    h = 60 * ((r - g) / delta + 4);
-                }
-
-            if (h < 0)
+            double h,s,I;
+            I = (pixel[0] + pixel[1] + pixel[2])/3.0;
+            s = 1 - 3*min_bgr/(pixel[0] + pixel[1] + pixel[2]);
+            h = acos((pixel[2]-pixel[1] + pixel[2]-pixel[0])/(2*sqrt(pow(pixel[2]-pixel[1],2) + (pixel[2]-pixel[0])*(pixel[1]-pixel[0])) + 0.00001));
+            if (pixel[0] > pixel[1])
             {
-                h += 360;
+                h = 2*PI - h;
             }
-            output.at<Vec3b>(i, j)[0] = (int)(h/2.0);
+
+            output.at<Vec3b>(i, j)[0] = (int)(h*255.0/PI/2.0);
             output.at<Vec3b>(i, j)[1] = (int)(s*255.0);
-            output.at<Vec3b>(i, j)[2] = (int)(v*255.0);
+            output.at<Vec3b>(i, j)[2] = (int)I;
         }
     }
 }
@@ -136,14 +173,14 @@ void ColorSplitManual(const Mat &hsv_input, Mat &grey_output, const string windo
 	static int hmax = 255;
 	static int smin = 0;
 	static int smax = 255;
-	static int vmin = 0;
-	static int vmax = 255;
+	static int imin = 0;
+	static int imax = 255;
 	createTrackbar("Hmin", window, &hmin, 255);
 	createTrackbar("Hmax", window, &hmax, 255);
 	createTrackbar("Smin", window, &smin, 255);
 	createTrackbar("Smax", window, &smax, 255);
-	createTrackbar("Vmin", window, &vmin, 255);
-	createTrackbar("Vmax", window, &vmax, 255);
+	createTrackbar("Vmin", window, &imin, 255);
+	createTrackbar("Vmax", window, &imax, 255);
 
     /*** 第三步：在此处填充阈值分割代码代码 ***/
 	int row = hsv_input.rows;
@@ -152,16 +189,13 @@ void ColorSplitManual(const Mat &hsv_input, Mat &grey_output, const string windo
 	{
 		for(int j = 0; j < col; j++)
 		{
-			if(vmin <= hsv_input.at<Vec3b>(i, j)[2] && hsv_input.at<Vec3b>(i, j)[2] <= vmax &&
+			if(imin <= hsv_input.at<Vec3b>(i, j)[2] && hsv_input.at<Vec3b>(i, j)[2] <= imax &&
 			   smin <= hsv_input.at<Vec3b>(i, j)[1] && hsv_input.at<Vec3b>(i, j)[1] <= smax &&
 			   hmin <= hsv_input.at<Vec3b>(i, j)[0] && hsv_input.at<Vec3b>(i, j)[0] <= hmax)
 				grey_output.at<uchar>(i, j) = 255;
 			else grey_output.at<uchar>(i, j) = 0;
 		}
 	}
-
-
-
 }
 
 void ColorSplitAuto(const Mat &hsv_input, Mat &bgr_output, vector<vector<Point>> &contours, int hmin, int hmax, int smin, int smax, int vmin, int vmax)
@@ -169,7 +203,9 @@ void ColorSplitAuto(const Mat &hsv_input, Mat &bgr_output, vector<vector<Point>>
     int rw = hsv_input.rows;
 	int cl = hsv_input.cols;
     Mat color_region(rw, cl, CV_8UC1);
-
+    int flag = 0;
+    if (hmax == 255)
+        flag = 1;
     /*** 第五步：利用已知的阈值获取颜色区域二值图 ***/
     for (int i = 0; i < rw; i++)
     {
@@ -179,12 +215,22 @@ void ColorSplitAuto(const Mat &hsv_input, Mat &bgr_output, vector<vector<Point>>
                smin <= hsv_input.at<Vec3b>(i, j)[1] && hsv_input.at<Vec3b>(i, j)[1] <= smax &&
                hmin <= hsv_input.at<Vec3b>(i, j)[0] && hsv_input.at<Vec3b>(i, j)[0] <= hmax
             )
-            color_region.at<uchar>(i, j) = 255;
+                color_region.at<uchar>(i, j) = 255;
             else{
                 color_region.at<uchar>(i, j) = 0;
             }
+            if (flag)
+            {
+                if(0 <= hsv_input.at<Vec3b>(i, j)[2] && hsv_input.at<Vec3b>(i, j)[2] <= 25 &&
+               smin <= hsv_input.at<Vec3b>(i, j)[1] && hsv_input.at<Vec3b>(i, j)[1] <= smax &&
+               hmin <= hsv_input.at<Vec3b>(i, j)[0] && hsv_input.at<Vec3b>(i, j)[0] <= hmax
+            )
+                color_region.at<uchar>(i, j) = 255;
+            }
+            
         }
     }
+    // imshow("color_region", color_region);
 
 
 
@@ -198,6 +244,7 @@ void ColorSplitAuto(const Mat &hsv_input, Mat &bgr_output, vector<vector<Point>>
 		approxPolyDP(contours[i], lines[i],9,true);
 	}
 	drawContours(bgr_output, lines, -1,Scalar(0, 0, 255), 2, 8);
+
 }
 
 
@@ -208,6 +255,7 @@ void GetROI(const Mat &input, Mat &output, const vector<vector<Point>> &contour)
 
     drawContours(mask, contour, -1, Scalar(255, 255, 255), FILLED, 8);
     input.copyTo(output, mask);
+    // imshow("ROI", output);
 }
 
 int CountROIPixel(const Mat &input)
@@ -220,26 +268,22 @@ int CountROIPixel(const Mat &input)
         for (int j = 0; j < input.cols; j++)
         {
             Vec3b pixel = input.at<Vec3b>(i, j);
-            if ((pixel[0] > 0) || (pixel[1] > 0) || (pixel[2] > 0))
+            if (pixel[0] > 0 && pixel[1] > 0 && pixel[2] > 0)
             {
                 cnt++;
             }
+        
         }
     }
-
-
-
-
     return cnt;
 }
 
-
 /*** 第四步：在第三步基础上修改各颜色阈值 ***/
 //{hmin, hmax, smin, smax, vmin, vmax}
-int red_thresh[6] = {0};
-int green_thresh[6] = {0};
-int blue_thresh[6] = {0};
-int yellow_thresh[6] = {0};
+int red_thresh[6] = {200,255,44,255,46,255};
+int green_thresh[6] = {60,100,44,255,46,255};
+int blue_thresh[6] = {120,180,44,255,46,255};
+int yellow_thresh[6] = {30,60,44,255,46,255};
 
 Mat frame_msg;
 void rcvCameraCallBack(const sensor_msgs::Image::ConstPtr& img)
@@ -256,6 +300,7 @@ int main(int argc, char **argv)
 	ros::Publisher vel_pub;
     ros::Subscriber camera_sub;
     VideoCapture capture;
+    vel_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
     if(state == COMPUTER)
     {
         capture.open(0);     
@@ -273,7 +318,7 @@ int main(int argc, char **argv)
         {
             printf("ZED摄像头没有正常打开\n");
             return 0;
-        }
+        }n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
         waitKey(1000);
     }
     else if(state == REALSENSE)
@@ -321,14 +366,14 @@ int main(int argc, char **argv)
         Gaussian(frIn, filter, 3);
         imshow("filter",filter);
 
-        // RGB转HSV
-        Mat hsv(frIn.size(), CV_8UC3);
-        BGR2HSV(filter, hsv);
-        imshow("hsv",hsv);
+        // RGB转HSI
+        Mat hsi(frIn.size(), CV_8UC3);
+        BGR2HSI(filter, hsi);
+        imshow("hsi",hsi);
 
         // 手动颜色分割
         Mat grey(frIn.rows, frIn.cols, CV_8UC1);
-        ColorSplitManual(hsv, grey, "hsv_split");
+        ColorSplitManual(hsi, grey, "hsi");
         imshow("split", grey);
         
         int colors = 0;
@@ -338,7 +383,7 @@ int main(int argc, char **argv)
 	    Mat tmp_line = frIn.clone();
 	    Mat tmp_roi = Mat::zeros(frIn.size(), CV_8UC3);
         vector<vector<Point>> contours_r;
-        	ColorSplitAuto(hsv, tmp_line, contours_r, red_thresh[0], red_thresh[1], red_thresh[2],
+        	ColorSplitAuto(hsi, tmp_line, contours_r, red_thresh[0], red_thresh[1], red_thresh[2],
 				   red_thresh[3], red_thresh[4], red_thresh[5]);
 	    GetROI(frIn, tmp_roi, contours_r);
 	    int red_color_num = CountROIPixel(tmp_roi);
@@ -349,16 +394,17 @@ int main(int argc, char **argv)
         Mat tmp_line_g = frIn.clone();
         Mat tmp_roi_g = Mat::zeros(frIn.size(), CV_8UC3);
         vector<vector<Point>> contours_g;
-        ColorSplitAuto(hsv, tmp_line_g, contours_g, green_thresh[0], green_thresh[1], green_thresh[2],
+        ColorSplitAuto(hsi, tmp_line_g, contours_g, green_thresh[0], green_thresh[1], green_thresh[2],
                        green_thresh[3], green_thresh[4], green_thresh[5]);
         GetROI(frIn, tmp_roi_g, contours_g);
+        imshow("line", tmp_line_g);
         int green_color_num = CountROIPixel(tmp_roi_g);
         
         // 检测蓝色
         Mat tmp_line_b = frIn.clone();
         Mat tmp_roi_b = Mat::zeros(frIn.size(), CV_8UC3);
         vector<vector<Point>> contours_b;
-        ColorSplitAuto(hsv, tmp_line_b, contours_b, blue_thresh[0], blue_thresh[1], blue_thresh[2],
+        ColorSplitAuto(hsi, tmp_line_b, contours_b, blue_thresh[0], blue_thresh[1], blue_thresh[2],
                        blue_thresh[3], blue_thresh[4], blue_thresh[5]);
         GetROI(frIn, tmp_roi_b, contours_b);
         int blue_color_num = CountROIPixel(tmp_roi_b);
@@ -367,7 +413,7 @@ int main(int argc, char **argv)
         Mat tmp_line_y = frIn.clone();
         Mat tmp_roi_y = Mat::zeros(frIn.size(), CV_8UC3);
         vector<vector<Point>> contours_y;
-        ColorSplitAuto(hsv, tmp_line_y, contours_y, yellow_thresh[0], yellow_thresh[1], yellow_thresh[2],
+        ColorSplitAuto(hsi, tmp_line_y, contours_y, yellow_thresh[0], yellow_thresh[1], yellow_thresh[2],
                        yellow_thresh[3], yellow_thresh[4], yellow_thresh[5]);
         GetROI(frIn, tmp_roi_y, contours_y);
         int yellow_color_num = CountROIPixel(tmp_roi_y);
@@ -391,11 +437,16 @@ int main(int argc, char **argv)
             maxs_color_num = yellow_color_num;
         }
 
-        if (maxs_color_num < 200)
+        if (maxs_color_num < 60000)
         { 
             maxs_color_num = 0;
         }
-
+        ROS_INFO("red_color_num: %d", red_color_num);
+        ROS_INFO("green_color_num: %d", green_color_num);
+        ROS_INFO("blue_color_num: %d", blue_color_num);
+        ROS_INFO("yellow_color_num: %d", yellow_color_num);
+        ROS_INFO("maxs_color_num: %d", maxs_color_num);
+        ROS_INFO("colors: %d", colors);
 
 
         geometry_msgs::Twist vel;
@@ -423,11 +474,11 @@ int main(int argc, char **argv)
                     break;
             }
         }
+        else {
+            vel.linear.x = 0;
+            vel.angular.z = 0;
+        }
         vel_pub.publish(vel);
-
-
-
-
         ros::spinOnce();
         waitKey(5);
     }
